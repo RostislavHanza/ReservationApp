@@ -1,0 +1,33 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.37411.7
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ReservationApp.Api", "ReservationApp.Api\ReservationApp.Api.csproj", "{D175066E-BDFC-4B19-A576-E9D39B10F13E}"
+EndProject
+Project("{54A90642-561A-4BB1-A94E-469ADEE60C69}") = "reservationapp.frontend", "ReservationApp.Frontend\reservationapp.frontend.esproj", "{B39C79CF-18A9-FE2C-B981-2D997F057589}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D175066E-BDFC-4B19-A576-E9D39B10F13E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D175066E-BDFC-4B19-A576-E9D39B10F13E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D175066E-BDFC-4B19-A576-E9D39B10F13E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D175066E-BDFC-4B19-A576-E9D39B10F13E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B39C79CF-18A9-FE2C-B981-2D997F057589}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B39C79CF-18A9-FE2C-B981-2D997F057589}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B39C79CF-18A9-FE2C-B981-2D997F057589}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
+		{B39C79CF-18A9-FE2C-B981-2D997F057589}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B39C79CF-18A9-FE2C-B981-2D997F057589}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B39C79CF-18A9-FE2C-B981-2D997F057589}.Release|Any CPU.Deploy.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {4AB45448-2C2F-4A46-B277-BEFD36637EDF}
+	EndGlobalSection
+EndGlobal
