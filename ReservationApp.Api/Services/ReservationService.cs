@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 using ReservationApp.Api.Data;
 using ReservationApp.Api.Models;
 
@@ -18,88 +19,100 @@ public class ReservationService : IReservationService
     }
     public async Task ChangeReservation(ReservationDTO request, string ipAddress, string navigator)
     {
-        var oldReservation = await _db.Reservations
+        await ExecuteInTransaction(async () =>
+        {
+            var oldReservation = await _db.Reservations
             .FirstOrDefaultAsync(r => r.ReservationCode == request.ReservationCode);
 
-        if (oldReservation == null)
-            throw new Exception("Reservation not found.");
+            if (oldReservation == null)
+                throw new Exception("Reservation not found.");
 
-        var ticketsCount = await _db.Reservations
-            .Where(r => r.Id != oldReservation.Id)
-            .SumAsync(r => r.TicketCount);
-        int capacity = _config.GetValue<int>("Event:Capacity");
+            var ticketsCount = await _db.Reservations
+                .Where(r => r.Id != oldReservation.Id)
+                .SumAsync(r => r.TicketCount);
+            int capacity = _config.GetValue<int>("Event:Capacity");
 
-        if (ticketsCount + request.TicketCount > capacity)
-            throw new Exception("Not enough tickets.");
+            if (ticketsCount + request.TicketCount > capacity)
+                throw new Exception("Not enough tickets.");
 
-        var newReservation = new Reservation
-        {
-            Id = oldReservation.Id,
-            ReservationCode = oldReservation.ReservationCode,
-            Email = request.Email,
-            Phone = request.Phone,
-            TicketCount = request.TicketCount,
-            CreatedAt = oldReservation.CreatedAt,
-            UpdatedAt = DateTime.UtcNow
-        };
+            var newReservation = new Reservation
+            {
+                Id = oldReservation.Id,
+                ReservationCode = oldReservation.ReservationCode,
+                Email = request.Email,
+                Phone = request.Phone,
+                TicketCount = request.TicketCount,
+                CreatedAt = oldReservation.CreatedAt,
+                UpdatedAt = DateTime.UtcNow
+            };
 
-        await _jr.LogJournalEntry
-            (oldReservation, newReservation, ipAddress, navigator, OperationType.Changed);
+            await _jr.LogJournalEntry
+                (oldReservation, newReservation, ipAddress, navigator, OperationType.Changed);
 
-        oldReservation.Email = newReservation.Email;
-        oldReservation.Phone = newReservation.Phone;
-        oldReservation.TicketCount = newReservation.TicketCount;
-        oldReservation.UpdatedAt = newReservation.UpdatedAt;
+            oldReservation.Email = newReservation.Email;
+            oldReservation.Phone = newReservation.Phone;
+            oldReservation.TicketCount = newReservation.TicketCount;
+            oldReservation.UpdatedAt = newReservation.UpdatedAt;
 
-        await _db.SaveChangesAsync();
+            await _db.SaveChangesAsync();
+
+            return true;
+        });
     }
 
     public async Task<string> CreateReservation(ReservationDTO request, string ipAddress, string navigator)
     {
-        var ticketsCount = await _db.Reservations
-            .SumAsync(r => r.TicketCount);
-
-        int capacity = _config.GetValue<int>("Event:Capacity");
-
-        if (ticketsCount + request.TicketCount > capacity)
-            throw new Exception("Not enough tickets.");
-
-        var newReservation = new Reservation
+        return await ExecuteInTransaction(async () =>
         {
-            Email = request.Email,
-            Phone = request.Phone,
-            TicketCount = request.TicketCount,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-        await _db.Reservations.AddAsync(newReservation);
-        await _db.SaveChangesAsync();
+            var ticketsCount = await _db.Reservations
+                    .SumAsync(r => r.TicketCount);
 
-        newReservation.ReservationCode = GenerateReservationCode(newReservation.Id);
+            int capacity = _config.GetValue<int>("Event:Capacity");
 
-        await _jr.LogJournalEntry
-            (newReservation, newReservation, ipAddress, navigator, OperationType.Created);
+            if (ticketsCount + request.TicketCount > capacity)
+                throw new Exception("Not enough tickets.");
 
-        await _db.SaveChangesAsync();
+            var newReservation = new Reservation
+            {
+                Email = request.Email,
+                Phone = request.Phone,
+                TicketCount = request.TicketCount,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            await _db.Reservations.AddAsync(newReservation);
+            await _db.SaveChangesAsync();
 
-        return newReservation.ReservationCode;
+            newReservation.ReservationCode = GenerateReservationCode(newReservation.Id);
+
+            await _jr.LogJournalEntry
+                (newReservation, newReservation, ipAddress, navigator, OperationType.Created);
+
+            await _db.SaveChangesAsync();
+            return newReservation.ReservationCode;
+        });
+
     }
 
     public async Task DeleteReservation(string reservationCode, string ipAddress, string navigator)
     {
-        if (string.IsNullOrWhiteSpace(reservationCode))
-            throw new Exception("Reservation code is required.");
+        await ExecuteInTransaction(async () =>
+        {
+            if (string.IsNullOrWhiteSpace(reservationCode))
+                throw new Exception("Reservation code is required.");
 
-        var reservation = await _db.Reservations
-            .FirstOrDefaultAsync(r => r.ReservationCode == reservationCode);
+            var reservation = await _db.Reservations
+                .FirstOrDefaultAsync(r => r.ReservationCode == reservationCode);
 
-        if (reservation == null)
-            throw new Exception("Reservation not found.");
+            if (reservation == null)
+                throw new Exception("Reservation not found.");
 
-        await _jr.LogJournalEntry(reservation, reservation, ipAddress, navigator, OperationType.Deleted);
+            await _jr.LogJournalEntry(reservation, reservation, ipAddress, navigator, OperationType.Deleted);
 
-        _db.Reservations.Remove(reservation);
-        await _db.SaveChangesAsync();
+            _db.Reservations.Remove(reservation);
+            await _db.SaveChangesAsync();
+            return true;
+        });
     }
 
     public async Task<ReservationDTO> GetReservation(string reservationCode)
@@ -121,6 +134,37 @@ public class ReservationService : IReservationService
             ReservationCode = reservation.ReservationCode
         };
 
+    }
+    private async Task<T> ExecuteInTransaction<T>(Func<Task<T>> action)
+    {
+        var connection = (SqliteConnection)_db.Database.GetDbConnection();
+
+        await _db.Database.OpenConnectionAsync();
+
+        try
+        {
+            using var transaction = connection.BeginTransaction(deferred: false);
+
+            await using var efTransaction = await _db.Database.UseTransactionAsync(transaction);
+
+            try
+            {
+                var result = await action();
+
+                await transaction.CommitAsync();
+
+                return result;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+        finally
+        {
+            await _db.Database.CloseConnectionAsync();
+        }
     }
     private string GenerateReservationCode(int id)
     {
